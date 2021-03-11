@@ -1,0 +1,111 @@
+---
+title: "DDM Homework 2"
+author: "Sai Teja Pasula - MS BAIM - PUID: 0032877594"
+date: "1/29/2021"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: inline
+---
+## Objective: Test for the left-digit bias of car buyers and discuss implications for pricing
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#load the data
+rm(list = ls())
+setwd("C:/Users/saite/Desktop/Masters/1.Purdue/Course Material/1.Spring Mod 3/MGMT 526 DDM/2.Assignments/Data")
+db = read.csv("carsdata.csv")
+```
+
+### Data Processing
+```{r cars, echo=TRUE}
+## coerce model year into a factor variable, use 2006 as the reference level
+db$modelyear = factor(db$modelyear)
+db$modelyear = relevel(db$modelyear,"2006")
+
+## coerce month into a factor variable, use month 9 as the reference level
+db$month = factor(db$month)
+db$month = relevel(db$month,"9")
+summary(db)
+```
+
+#Pre checks
+```{r prelimchecks}
+#Missing values
+nmiss = sum(is.na(db))
+
+# Proportion of classes
+prop = data.frame(table(db$sold))
+p0 = prop[prop$Var1 == 0,]$Freq
+p1 = prop[prop$Var1 == 1,]$Freq
+paste("Numer of missing values",nmiss)
+paste(" The proportion of classes unsold vs sold is:",round((p0/(p1+p0))*100,2),"% ,", round((p1/(p1+p0))*100,2),"% respectively")=
+```
+
+```{r mileddecompose}
+## decompose the mile
+db$mile10k = floor(db$mile/10)*10
+db$mile1k = floor(db$mile - db$mile10k)
+db$milermd = db$mile - floor(db$mile)
+db$milermd = round(db$milermd,digits = 3)
+
+head(db[,c("mile","mile10k","mile1k","milermd")])
+```
+### Question 1: Plot a scatterplot of price against mile. Briey explain the major patterns in the price-mile relationship.
+
+```{r Q1_SP}
+## plot price against mile - add legend
+plot(db$mile,db$price,main="Scatterplot of Price vs Mile",
+     xlab="Mile", ylab="Price of the Car",col = db$modelyear)
+legend("topright",legend=c(2006:2010),col=1:5,pch=15,cex=0.8)
+```
+
+a) The above plot shows that the price of the car declines with the increase in the number of miles traveled.
+
+b) It also shows that the there are a lot of cars with similar selling price i.e. horizontal lines even though the mileage is different and that's because mileage is not the only factor affecting the price.
+
+### Question 2: Regress price on all car attributes (use decomposed mile) and month. How does the price-mile relationship here compare with that shown in the scatterplot?
+
+#### (i) Linear price regression - with mile
+```{r price~mile}
+reg1 = glm(price ~ mile + engine_vol + wheelbase + modelyear + model + month, data = db)
+summary(reg1)
+```
+#### (ii) Linear price regression - with mile replaced by decomposed mile digits
+
+```{r price~milemd}
+reg2 = glm(price ~ mile10k + mile1k + milermd + engine_vol + model + modelyear  + month, data = db)
+summary(reg2)
+```
+
+a) We can infer that the left digits of the decomposed price   (mile10k, mile1k) behave in a similar way that of the mile in the first scatter plot (Negative Coefficient for Estimate).
+
+b) But last mile digits (milermd) are positively affecting the price and not significant enough to predict the price ("Pr(>|z|)" = 0.290184) while the left ones are significant with almost 100% ("Pr(>|z|)" < 0.001)
+
+### Question 3: Fit a logistic regression for whether a car was sold on the first day to investigate the LDB of car buyers. Does car buyers show LDB in their attention to the digits of price? Briefly explain your answer.
+```{r sold ~ logit}
+
+## decompose the price
+db$pricedol10 = floor(db$price/10)*10
+db$pricedol1 = floor(db$price - db$pricedol10)
+db$pricemd = db$price - floor(db$price)
+db$pricemd = round(db$pricemd,digits = 3)
+
+#fit the regression
+reg3 = glm(sold ~ pricedol10 + pricedol1 + pricemd + mile + modelyear + model + month, data = db,family= binomial)
+summary(reg3)
+```
+a) After observing the results of the above model, we can say that the left digit bias is evident for sold vs decomposed price, because the left digits (pricedol10, pricedol1) are significant with almost 100% confidence ("Pr(>|z|)" < 0.001) whereas the right most ones (pricemd) aren't significant enough to predict the selling probability ("Pr(>|z|)" = 0.726535).
+
+### Question 4: Briefly discuss the implications of your fndings above for the pricing of used cars.
+
+a) We have concluded that the left digit bias exists when a consumer is trying to purchase a used car. Therefore, the store managers can be more proactive while setting a price for the car i.e. they can increase the last digits part of the price for more profit margin.
+
+b) But left digit bias can be across multiple variables i.e. in the above example, it is price and miles. But both these variables can be interdependent with each other. So the store managers can take the left digit bias into account, but focus on the most important variable to apply this left digit bias.
+
+
+
+
+
+
